@@ -1,1 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ESP32 Smart Car</title>
 
+<style>
+* {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: Arial, sans-serif;
+    background: #101318;
+    color: white;
+    text-align: center;
+}
+
+.header {
+    padding: 18px 10px 10px;
+}
+
+.header h1 {
+    margin: 0;
+    font-size: 26px;
+}
+
+.header p {
+    margin: 6px 0;
+    color: #aaa;
+}
+
+.status {
+    display: inline-block;
+    margin: 8px;
+    padding: 7px 14px;
+    border-radius: 20px;
+    background: #252a31;
+    color: #00ff88;
+    font-size: 13px;
+}
+
+.container {
+    width: 94%;
+    max-width: 500px;
+    margin: auto;
+}
+
+/* Camera */
+.camera {
+    width: 100%;
+    height: 230px;
+    background: #050505;
+    border: 2px solid #303640;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 10px 0 20px;
+    overflow: hidden;
+}
+
+.camera span {
+    color: #777;
+    font-size: 18px;
+}
+
+/* Direction controls */
+.controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+    width: 300px;
+    max-width: 100%;
+    margin: auto;
+}
+
+.btn {
+    height: 75px;
+    border: none;
+    border-radius: 18px;
+    background: #252b33;
+    color: white;
+    font-size: 30px;
+    font-weight: bold;
+    box-shadow: 0 5px 12px rgba(0,0,0,0.35);
+    touch-action: manipulation;
+}
+
+.btn:active {
+    transform: scale(0.94);
+    background: #3a424d;
+}
+
+.stop {
+    background: #c62828;
+}
+
+.stop:active {
+    background: #ef4444;
+}
+
+.forward {
+    grid-column: 2;
+}
+
+.left {
+    grid-column: 1;
+    grid-row: 2;
+}
+
+.stop {
+    grid-column: 2;
+    grid-row: 2;
+}
+
+.right {
+    grid-column: 3;
+    grid-row: 2;
+}
+
+.reverse {
+    grid-column: 2;
+    grid-row: 3;
+}
+
+/* Features */
+.features {
+    display: flex;
+    gap: 12px;
+    margin-top: 22px;
+}
+
+.feature {
+    flex: 1;
+    padding: 15px 8px;
+    border-radius: 15px;
+    background: #20252c;
+}
+
+.feature button {
+    width: 100%;
+    padding: 13px 5px;
+    border: none;
+    border-radius: 10px;
+    background: #303741;
+    color: white;
+    font-size: 16px;
+}
+
+.feature button.active {
+    background: #18794e;
+}
+
+/* Speed */
+.speed-box {
+    margin-top: 20px;
+    background: #20252c;
+    padding: 16px;
+    border-radius: 15px;
+}
+
+.speed-box h3 {
+    margin: 0 0 10px;
+}
+
+input[type="range"] {
+    width: 90%;
+}
+
+.speed-value {
+    margin-top: 8px;
+    font-size: 18px;
+}
+
+/* Footer */
+.footer {
+    margin: 25px 0;
+    color: #777;
+    font-size: 12px;
+}
+
+@media (max-width: 380px) {
+    .camera {
+        height: 200px;
+    }
+
+    .btn {
+        height: 68px;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<div class="header">
+    <h1>🚗 ESP32 SMART CAR</h1>
+    <p>4-Wheel Wi-Fi Controller</p>
+    <div class="status" id="status">● Web Controller Ready</div>
+</div>
+
+<div class="container">
+
+    <!-- Camera -->
+    <div class="camera" id="camera">
+        <span>🎥 ESP32-CAM VIDEO</span>
+    </div>
+
+    <!-- Direction Controls -->
+    <div class="controls">
+
+        <button class="btn forward"
+                onpointerdown="move('forward')"
+                onpointerup="stopCar()"
+                onpointercancel="stopCar()">
+            ⬆️
+        </button>
+
+        <button class="btn left"
+                onpointerdown="move('left')"
+                onpointerup="stopCar()"
+                onpointercancel="stopCar()">
+            ⬅️
+        </button>
+
+        <button class="btn stop"
+                onclick="stopCar()">
+            🛑
+        </button>
+
+        <button class="btn right"
+                onpointerdown="move('right')"
+                onpointerup="stopCar()"
+                onpointercancel="stopCar()">
+            ➡️
+        </button>
+
+        <button class="btn reverse"
+                onpointerdown="move('reverse')"
+                onpointerup="stopCar()"
+                onpointercancel="stopCar()">
+            ⬇️
+        </button>
+
+    </div>
+
+    <!-- LED and Horn -->
+    <div class="features">
+
+        <div class="feature">
+            <div>💡 LED</div>
+            <br>
+            <button id="ledButton" onclick="toggleLED()">
+                OFF
+            </button>
+        </div>
+
+        <div class="feature">
+            <div>📢 HORN</div>
+            <br>
+            <button
+                onpointerdown="hornOn()"
+                onpointerup="hornOff()"
+                onpointercancel="hornOff()">
+                HOLD
+            </button>
+        </div>
+
+    </div>
+
+    <!-- Speed -->
+    <div class="speed-box">
+        <h3>⚡ SPEED</h3>
+
+        <input
+            type="range"
+            id="speed"
+            min="0"
+            max="100"
+            value="70"
+            oninput="changeSpeed(this.value)"
+        >
+
+        <div class="speed-value">
+            <span id="speedValue">70</span>%
+        </div>
+    </div>
+
+</div>
+
+<div class="footer">
+    ESP32-CAM Smart Car Controller
+</div>
+
+
+<script>
+
+/*
+    ESP32 COMMAND SYSTEM
+
+    We will connect this to your ESP32-CAM later.
+
+    Example commands:
+    /forward
+    /reverse
+    /left
+    /right
+    /stop
+    /led/on
+    /led/off
+    /horn/on
+    /horn/off
+*/
+
+let ledState = false;
+let speed = 70;
+
+
+/* Update status */
+function setStatus(message) {
+    document.getElementById("status").innerText = "● " + message;
+}
+
+
+/* Car movement */
+function move(direction) {
+
+    setStatus("Moving: " + direction.toUpperCase());
+
+    console.log("CAR COMMAND:", direction);
+
+    /*
+    Later we will send:
+    sendCommand("/" + direction);
+    */
+}
+
+
+/* Stop */
+function stopCar() {
+
+    setStatus("Stopped");
+
+    console.log("CAR COMMAND: STOP");
+
+    /*
+    Later:
+    sendCommand("/stop");
+    */
+}
+
+
+/* LED */
+function toggleLED() {
+
+    ledState = !ledState;
+
+    const button = document.getElementById("ledButton");
+
+    if (ledState) {
+
+        button.innerText = "ON";
+        button.classList.add("active");
+
+        setStatus("LED ON");
+
+        console.log("LED: ON");
+
+    } else {
+
+        button.innerText = "OFF";
+        button.classList.remove("active");
+
+        setStatus("LED OFF");
+
+        console.log("LED: OFF");
+    }
+}
+
+
+/* Horn */
+function hornOn() {
+
+    setStatus("HORN ON");
+
+    console.log("HORN: ON");
+
+}
+
+
+function hornOff() {
+
+    setStatus("Ready");
+
+    console.log("HORN: OFF");
+
+}
+
+
+/* Speed */
+function changeSpeed(value) {
+
+    speed = value;
+
+    document.getElementById("speedValue").innerText = value;
+
+    console.log("SPEED:", value);
+}
+
+</script>
+
+</body>
+</html>
